@@ -9,6 +9,12 @@ class NFA:
         self.nodeCount = 0
         self.currentNode = 0
 
+    def preProcessString(self):
+        for i in range(len(self.regString)):
+            if self.regString[i] not in ["(",")","|","."] and self.regString[i+1] not in ["*","|",")"]:
+                self.regString = self.regString[:i+1] + '.' + self.regString[i+1:]
+            
+
     def addTransition(self,transition,endState):
         self.states.update({transition: endState})
 
