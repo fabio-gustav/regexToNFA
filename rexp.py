@@ -7,7 +7,7 @@ class NFA:
         self.states = set()
         self.acceptingStates = set()
         self.initialState = "q0"
-        self.preProcessString()
+        #self.preProcessString()
         self.create_nfa()
 
 
@@ -92,16 +92,16 @@ class NFA:
                 currentState = starState
                 i+=1
                 
-            elif symbol == ".":
-                prev_symbol = expression[i-1]
-                concatState = self.addState()
+            # elif symbol == ".":
+            #     prev_symbol = expression[i-1]
+            #     concatState = self.addState()
                 
-                if prev_symbol not in self.transitionFunctions[currentState]:
-                    self.transitionFunctions[currentState][prev_symbol] = set()
-                self.transitionFunctions[currentState][prev_symbol].add(concatState)
+            #     if prev_symbol not in self.transitionFunctions[currentState]:
+            #         self.transitionFunctions[currentState][prev_symbol] = set()
+            #     self.transitionFunctions[currentState][prev_symbol].add(concatState)
                 
-                currentState = concatState
-                i+=1
+            #     currentState = concatState
+            #     i+=1
                 
             else:
                 newState = self.addState()
@@ -171,6 +171,8 @@ if __name__ == '__main__':
         main()
     else:
         print("No regular expression entered, defaulting to ab*a|a(ba)*")
+        reg = "ab*a"
+        main()
         
 
 
