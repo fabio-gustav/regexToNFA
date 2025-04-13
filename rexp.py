@@ -1,52 +1,30 @@
 import sys
 
-
-reg = ""
 class NFA:
-    
-    node_total = 0
-    
     def __init__(self,expression):
-        self.reg_string = expression
-        self.transition = {}
+        self.regString = expression
+        self.transitionFunctions = {}
         self.states = set()
-        self.accepting_states = set()
-        self.initial = NFA.node_total
+        self.acceptingStates = set()
+        self.initialState = "q0"
+        #self.preProcessString()
         self.create_nfa()
 
 
     def create_nfa(self):
-        self.states = {self.initial}
-        NFA.node_total += 1
-        self.transition = {self.initial: {}}
-        self.nfaRunner(self.reg_string)
+        self.states = {self.initialState}
+        self.transitionFunctions = {self.initialState: {}}
+        self.nfaRunner(self.regString, self.initialState)
         
-    def nfaRunner(self,expression):
+    def nfaRunner(self,expression, startState):
         
-        if len(expression) <= 0:
-            return
-        
-        
-        
+        currentState = startState
+        alternateStates = []
         
         for i in range(len(expression)):
-            if expression[i] == "|":
-                self.union_nfa(i)
-                return
-                
-        for i in range(len(expression)):
-            if expression[i] == ".":
-                self.concat_nfa(i)
-                return
+            symbol = expression[i]
             
-        for i in range(len(expression)):
-            if expression[i] == "*":
-                self.star_nfa()
-                return
-        
-        
-        for i in range(len(expression)):
-            if expression[i] == "(":
+            if symbol == "(":
                 
                 nests = 1
                 nextIndex = i + 1
@@ -59,97 +37,133 @@ class NFA:
 
                     nextIndex += 1
                 
-                new_nfa = NFA(expression[i+1:nextIndex-1])
+                pExpression = expression[i+1:nextIndex-1]
+                newState = self.addState()
                 
-                self.transition.update(new_nfa.transition)
-                self.accepting_states = new_nfa.accepting_states
-                self.add_transition(self.initial,"",new_nfa.initial)
+                if '' not in self.transitionFunctions[currentState]:
+                    self.transitionFunctions[currentState][''] = set()
+                self.transitionFunctions[currentState][''].add(newState)
                 
-                # self.nfaRunner(self.reg_string[1:-1])
-                return
-        
-        self.literal_nfa()
-        return
+                currentState = self.nfaRunner(pExpression, newState)
                 
                 
-        
+                if nextIndex < len(expression) & (expression[nextIndex] == "*" | expression[nextIndex] == '.'):
+                    repeatState = self.addState() #change this name
+                    if expression[nextIndex] == '*':
+                        if '' not in self.transitionFunctions[currentState]:
+                            self.transitionFunctions[currentState][''] = set()
+                        self.transitionFunctions[currentState][''].add(repeatState)
+                        self.transitionFunctions[currentState][''].add(newState)
+                    elif expression[nextIndex] == '.':
+                        if '' not in self.transitionFunctions[currentState]:
+                            self.transitionFunctions[currentState][''] = set()
+                        self.transitionFunctions[currentState][''].add(repeatState)
+                        
+                    if '' not in self.transitionFunctions[repeatState]:
+                        self.transitionFunctions[repeatState][""] = set()
+                    self.transitionFunctions[repeatState][""].add(newState)
                     
-    def lambda_nfa(self):
-        self.accepting_states.add(self.initial)
-        
-    def literal_nfa(self):
-        new_state = self.add_state()
-        self.add_transition(self.initial,self.reg_string,new_state)
-        self.accepting_states.add(new_state)     
-
-    def union_nfa(self,index):
-        left_nfa = NFA(self.reg_string[:index])
-        right_nfa = NFA(self.reg_string[index+1:])
-        
-        self.transition.update(left_nfa.transition)
-        self.transition.update(right_nfa.transition)
-        
-        self.add_transition(self.initial,"",left_nfa.initial)
-        self.add_transition(self.initial,"",right_nfa.initial)
-        
-        self.accepting_states = self.accepting_states.union(left_nfa.accepting_states)
-        self.accepting_states = self.accepting_states.union(right_nfa.accepting_states)
-        
-    def concat_nfa(self,index):
-        left_nfa = NFA(self.reg_string[:index])
-        right_nfa = NFA(self.reg_string[index+1:])
-        
-        self.transition.update(left_nfa.transition)
-        self.transition.update(right_nfa.transition)
-        
-        for states in left_nfa.accepting_states:
-            self.add_transition(states,"",right_nfa.initial)
-        
-        self.add_transition(self.initial,"",left_nfa.initial)
-        
-        self.accepting_states = right_nfa.accepting_states
-
-    def star_nfa(self):
-        prev_nfa = NFA(self.reg_string[:-1])
-        
-        self.transition.update(prev_nfa.transition)
-        
-        self.add_transition(self.initial,"",prev_nfa.initial)
-        
-        for states in prev_nfa.accepting_states:
-            self.add_transition(states,"",self.initial)
+                    currentState = repeatState
+                    nextIndex +=1
+                    
+                i = nextIndex
             
-        self.accepting_states.add(self.initial)
+            elif symbol == "|":
+                branchState = self.addState()
+                if "" not in self.transitionFunctions[startState]:
+                    self.transitionFunctions[startState][""] = set()
+                self.transitionFunctions[startState][""].add(branchState)
+                
+                alternateStates.append(self.nfaRunner(expression[i+1:], branchState))
+                break
+                
+            elif symbol == "*":
+                prev_symbol = expression[i-1]
+                starState = self.addState()
+                #create function for these
+                if prev_symbol not in self.transitionFunctions[currentState]:
+                    self.transitionFunctions[currentState][prev_symbol] = set()
+                self.transitionFunctions[currentState][prev_symbol].add(currentState)
+                
+                if "" not in self.transitionFunctions[currentState]:
+                    self.transitionFunctions[currentState][""] = set()
+                self.transitionFunctions[currentState][""].add(starState)
+                
+                currentState = starState
+                i+=1
+                
+            # elif symbol == ".":
+            #     prev_symbol = expression[i-1]
+            #     concatState = self.addState()
+                
+            #     if prev_symbol not in self.transitionFunctions[currentState]:
+            #         self.transitionFunctions[currentState][prev_symbol] = set()
+            #     self.transitionFunctions[currentState][prev_symbol].add(concatState)
+                
+            #     currentState = concatState
+            #     i+=1
+                
+            else:
+                newState = self.addState()
+                if symbol not in self.transitionFunctions[currentState]:
+                    self.transitionFunctions[currentState][symbol] = set()
+                self.transitionFunctions[currentState][symbol].add(newState)
+                currentState = newState
+                i+=1
+                
+        for state in alternateStates:
+            if "" not in self.transitionFunctions[alternateStates]:
+                self.transitionFunctions[alternateStates][""] = set()
+            self.transitionFunctions[alternateStates][""].add(currentState)
+            
+            
+        self.acceptingStates.add(currentState)
+        return currentState
+                    
 
-    def add_transition(self,previous_state,symbol,new_state):
-        if symbol not in self.transition[previous_state]:
-            self.transition[previous_state][symbol] = set()
-        self.transition[previous_state][symbol].add(new_state)
+
+    def preProcessString(self):
+        for i in range(len(self.regString)):
+            if self.regString[i] not in ["(",")","|","."] and self.regString[i+1] not in ["*","|",")"]:
+                self.regString = self.regString[:i+1] + '.' + self.regString[i+1:]
+            
+
+    def addTransition(self,transition,endState):
+        self.states.update({transition: endState})
         
-    def add_state(self):
-        new_state = len(self.states) + self.initial
-        NFA.node_total += 1
-        self.states.add(new_state)
-        self.transition[new_state] = {}
-        return new_state
+    def addState(self):
+        newState = "q" + str(len(self.states))
+        self.states.add(newState)
+        self.transitionFunctions[newState] = {}
+        return newState
 
+    def addLiteral(self,literal):
+        if self.nodeCount > 0:
+            self.states.update({(self.currentNode,""):self.currentNode+1})
+            self.nodeCount+=1
+            self.currentNode+=1
+            
+        self.states.update({(self.currentNode, literal):self.currentNode+1})
+        self.nodeCount+=1
+        self.currentNode+=1
+    
+    def addStarClosure(self,literals):
+        #startNode = self.currentNode
+        #for literal in literals:
+            #self.addLiteral(literal)
+        pass
+        
+    def addAlternation(self):
+        pass
 
+    
+    #def addStarClosure(inNode,)
 
 
 def main():
-    
-    def preProcessString(regString):
-        for i in range(len(regString)):
-            if regString[i] not in ["(",")","|","."] and regString[i+1] not in ["*","|",")"]:
-                regString = regString[:i+1] + '.' + regString[i+1:]
-        return regString
+    dingus = NFA(reg)
 
-    regg = preProcessString(reg)
-
-    dingus = NFA(regg)
-
-    print(dingus.transition)
-    print(dingus.accepting_states)
+    print(dingus.transitionFunctions)
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:
@@ -157,7 +171,7 @@ if __name__ == '__main__':
         main()
     else:
         print("No regular expression entered, defaulting to ab*a|a(ba)*")
-        reg = "(ab)*"
+        reg = "ab*a"
         main()
         
 
