@@ -33,6 +33,26 @@ class NFA:
         self.transition[new_state] = {}
         return new_state
 
+    def print_NFA(self):
+        print("\nNFA:")
+        print("Sigma:\t" + " ".join(sorted(self.input_set)))
+        print("------")
+        all_states = sorted(self.transition.keys())
+        for state in all_states:
+            state_line = f"{state}:"
+
+            for symbol in sorted(self.input_set):
+                targets = self.transition[state].get(symbol, set())
+                state_line += (f" {symbol}->" + "{" + ", ".join(str(t) for t in sorted(targets)) + "}")
+
+            lambda_targets = self.transition[state].get("", set())
+            state_line += (f' ""->' + "{" + ", ".join(str(t) for t in sorted(lambda_targets)) + "}")
+
+            print(state_line)
+        print("------")
+        print(str(self.initial) + ":  Initial State")
+        print(",".join(str(t) for t in sorted(self.accepting_states)) + ":  Accepting State(s)")
+
 
 def literal_nfa(symbol):
     new_nfa = NFA(symbol)
@@ -97,27 +117,6 @@ def star_nfa(prev_nfa):
     new_nfa.input_set.update(prev_nfa.input_set)
 
     return new_nfa
-
-
-def print_nfa(nfa):
-    print("\nNFA:")
-    print("Sigma:\t" + " ".join(sorted(nfa.input_set)))
-    print("------")
-    all_states = sorted(nfa.transition.keys())
-    for state in all_states:
-        state_line = f"{state}:"
-
-        for symbol in sorted(nfa.input_set):
-            targets = nfa.transition[state].get(symbol, set())
-            state_line += (f" {symbol}->" + "{" + ", ".join(str(t) for t in sorted(targets)) + "}")
-
-        lambda_targets = nfa.transition[state].get("", set())
-        state_line += (f' ""->' + "{" + ", ".join(str(t) for t in sorted(lambda_targets)) + "}")
-
-        print(state_line)
-    print("------")
-    print(str(nfa.initial) + ":  Initial State")
-    print(",".join(str(t) for t in sorted(nfa.accepting_states)) + ":  Accepting State(s)")
 
 
 def regex_to_postfix(regex):
@@ -225,60 +224,86 @@ def lambda_closure(state, transition_diagram, result=None):
     return result
 
 
-def convert_nfa_to_dfa(nfa):
-    # define transition table
-    t = nfa.transition
+class DFA:
+    def __init__(self, NFA):
+        self.transition_table = {}
+        self.nfa = NFA
+        self.convert_nfa_to_dfa()
+        self.input_set = NFA.input_set
+        self.initial_state = None
 
-    # Get initial states
-    p0 = lambda_closure(nfa.initial, t)
+    def convert_nfa_to_dfa(self):
+        # define transition table
+        t = self.nfa.transition
 
-    # big_p's structure is -> key={the set of states}: value=int corresponding to the p number
-    #   ex: {{q0, q1, q2}:0, {q0,q1}:1}
-    big_p = {frozenset(p0): 0}
+        # Get initial states
+        p0 = lambda_closure(self.nfa.initial, t)
 
-    # result will be the output transition table with a structure like so ->
-    #   key=int p number: value=dict with structure-> key=letter from input set: value={set of states that value leads to}
-    #   ex: {0:{'a':{p0,p1,p2}, 'b':{p0,p1}}, 1:{'a':{...}, ...}}
-    result = {}
+        # big_p's structure is -> key={the set of states}: value=int corresponding to the p number
+        #   ex: {{q0, q1, q2}:0, {q0,q1}:1}
+        big_p = {frozenset(p0): 0}
 
-    # to_process will be a queue for DFA states (as frozensets) that still need processing
-    to_process = [frozenset(p0)]
+        # result will be the output transition table with a structure like so ->
+        #   key=int p number: value=dict with structure-> key=letter from input set: value={set of states that value leads to}
+        #   ex: {0:{'a':{p0,p1,p2}, 'b':{p0,p1}}, 1:{'a':{...}, ...}}
+        result = {}
 
-    p_count = 0
-    alphabets = nfa.input_set
+        # to_process will be a queue for DFA states (as frozensets) that still need processing
+        to_process = [frozenset(p0)]
 
-    while to_process:
-        # pop the next DFA state set to process
-        current_set = to_process.pop(0)
-        current_num = big_p[current_set]
+        p_count = 0
+        alphabets = self.nfa.input_set
 
-        # make sure the current DFA state has a dict in result
-        if current_num not in result:
-            result[current_num] = {}
+        while to_process:
+            # pop the next DFA state set to process
+            current_set = to_process.pop(0)
+            current_num = big_p[current_set]
 
-        # go through each alphabet symbol for the current state set
-        for alphabet in alphabets:
-            found_set = set()
-            # go through each NFA state in the current DFA state to see what states are reachable
-            for state in current_set:
-                if alphabet in t[state]:
-                    for destination in t[state][alphabet]:
-                        found_set.update(lambda_closure(destination, t))
+            # make sure the current DFA state has a dict in result
+            if current_num not in result:
+                result[current_num] = {}
 
-            # found_set done updating, so freeze it so it can hashed
-            found_frozenset = frozenset(found_set)
+            # go through each alphabet symbol for the current state set
+            for alphabet in alphabets:
+                found_set = set()
+                # go through each NFA state in the current DFA state to see what states are reachable
+                for state in current_set:
+                    if alphabet in t[state]:
+                        for destination in t[state][alphabet]:
+                            found_set.update(lambda_closure(destination, t))
 
-            # if this new set of states hasn't been seen before, give it a new DFA number and add to queue
-            if found_frozenset not in big_p:
-                p_count += 1
-                big_p[found_frozenset] = p_count
-                to_process.append(found_frozenset)
+                # found_set done updating, so freeze it so it can hashed
+                found_frozenset = frozenset(found_set)
 
-            # update the DFA transition table
-            destination_p = big_p[found_frozenset]
-            result[current_num][alphabet] = destination_p
+                # if this new set of states hasn't been seen before, give it a new DFA number and add to queue
+                if found_frozenset not in big_p:
+                    p_count += 1
+                    big_p[found_frozenset] = p_count
+                    to_process.append(found_frozenset)
 
-    return result
+                # update the DFA transition table
+                destination_p = big_p[found_frozenset]
+                result[current_num][alphabet] = destination_p
+
+        self.transition_table = result
+
+    def print_DFA(self):
+        print("\nDFA:")
+        print(" Sigma:    " + "    ".join(sorted(self.input_set)))
+        print("------------------")
+
+        all_states = sorted(self.transition_table.keys())
+        for state in all_states:
+            state_line = f"     {state}:"
+
+            for symbol in sorted(self.input_set):
+                target = self.transition_table[state].get(symbol, "-")
+                state_line += "    " + str(target)
+            print(state_line)
+
+        print("------------------")
+        print(str(self.initial_state) + ":  Initial State")
+        # print(",".join(str(t) for t in sorted(self.accepting_states)) + ":  Accepting State(s)")
 
 
 def main():
@@ -300,10 +325,10 @@ def main():
     print(user_entered_reg + " is a valid regular expression")
 
     nfa = postfix_to_nfa(postfix_reg)
-    print_nfa(nfa)
+    nfa.print_NFA()
 
-    dfa = convert_nfa_to_dfa(nfa)
-    print(f"DFA: {dfa}")
+    dfa = DFA(nfa)
+    dfa.print_DFA()
 
 
 if __name__ == "__main__":
