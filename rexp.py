@@ -228,9 +228,10 @@ class DFA:
     def __init__(self, NFA):
         self.transition_table = {}
         self.nfa = NFA
+        self.initial_state = None
+        self.accepting_states = set()
         self.convert_nfa_to_dfa()
         self.input_set = NFA.input_set
-        self.initial_state = None
 
     def convert_nfa_to_dfa(self):
         # define transition table
@@ -285,7 +286,17 @@ class DFA:
                 destination_p = big_p[found_frozenset]
                 result[current_num][alphabet] = destination_p
 
+        # done so set results
         self.transition_table = result
+        # Determine initial state - should always be 0
+        self.initial_state = 0
+        # get accepting states
+        for state_set, p_num in big_p.items():
+            for num in self.nfa.accepting_states:
+                if num in state_set:
+                    self.accepting_states.add(p_num)
+
+
 
     def print_DFA(self):
         print("\nDFA:")
@@ -303,7 +314,7 @@ class DFA:
 
         print("------------------")
         print(str(self.initial_state) + ":  Initial State")
-        # print(",".join(str(t) for t in sorted(self.accepting_states)) + ":  Accepting State(s)")
+        print(",".join(str(t) for t in sorted(self.accepting_states)) + ":  Accepting State(s)")
 
 
 def main():
