@@ -218,7 +218,7 @@ def lambda_closure(state, transition_diagram, result=None):
     current_transitions = transition_diagram[state]
     # if empty-string/lambda is a key
     if "" in current_transitions:
-        for other_state in current_transitions[""]:
+        for other_state in sorted(current_transitions[""]):
             lambda_closure(other_state, transition_diagram, result)
 
     return result
@@ -230,8 +230,8 @@ class DFA:
         self.nfa = NFA
         self.initial_state = None
         self.accepting_states = set()
+        self.input_set = sorted(NFA.input_set)
         self.convert_nfa_to_dfa()
-        self.input_set = NFA.input_set
 
     def convert_nfa_to_dfa(self):
         # define transition table
@@ -253,7 +253,7 @@ class DFA:
         to_process = [frozenset(p0)]
 
         p_count = 0
-        alphabets = self.nfa.input_set
+        alphabets = self.input_set
 
         while to_process:
             # pop the next DFA state set to process
@@ -268,9 +268,9 @@ class DFA:
             for alphabet in alphabets:
                 found_set = set()
                 # go through each NFA state in the current DFA state to see what states are reachable
-                for state in current_set:
+                for state in sorted(current_set):
                     if alphabet in t[state]:
-                        for destination in t[state][alphabet]:
+                        for destination in sorted(t[state][alphabet]):
                             found_set.update(lambda_closure(destination, t))
 
                 # found_set done updating, so freeze it so it can hashed
