@@ -175,10 +175,17 @@ def postfix_to_nfa(postfix):
 
 
 def preprocess_string(regString):
-    for i in range(len(regString)):
-        if regString[i - 1] not in "()|.*" and regString[i] not in "*|)":
-            regString = regString[:i] + "." + regString[i:]
-    return regString
+    result = []
+    n = len(regString)
+    
+    for i in range(n - 1):
+        result.append(regString[i])
+        if regString[i] not in "(.|." and regString[i+1] not in "*|).":
+            result.append('.')
+    
+    # add last char
+    result.append(regString[-1])
+    return ''.join(result)
 
 
 # THIS ONLY CHECKS PARENTHESES, THE REST NEEDS TO BE ADDED STILL
