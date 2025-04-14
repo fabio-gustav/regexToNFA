@@ -15,6 +15,9 @@ class NFA:
         self.initial = NFA.node_total
         self.create_nfa()
 
+    def __str__(self):
+        return f"Reg_string: {self.reg_string}.\n Input set: {self.input_set}.\n Transition: {self.transition}.\n States: {self.states}. \n Accepting: {self.accepting_states}. \n Initial: {self.initial}"
+
 
     def create_nfa(self):
         self.states = {self.initial}
@@ -179,8 +182,74 @@ def postfix_to_nfa(postfix):
     return stack.pop()
 
 
+def lambda_closure(state, transition_diagram, result=set()):
+    # Always include self
+    result.add(state)
+
+    current_transitions = transition_diagram[state]
+    # if empty-string/lambda is a key
+    if '' in current_transitions:
+        for other_state in current_transitions['']:
+            lambda_closure(other_state, transition_diagram, result)
+
+    return result
+
+def convert_nfa_to_dfa(nfa):
+    # define transition table
+    t = nfa.transition
+
+    # Get initial states
+    p0 = lambda_closure(nfa.initial, t)
+
+    # big_p's structure is -> key={the set of states}: value=int corresponding to the p number
+    #   ex: {{q0, q1, q2}:0, {q0,q1}:1}
+    big_p = {frozenset(p0): 0}
+
+    # result will be the output transition table with a structure like so ->
+    #   key=int p number: value=dict with structure-> key=letter from input set: value={set of states that value leads to}
+    #   ex: {0:{'a':{p0,p1,p2}, 'b':{p0,p1}}, 1:{'a':{...}, ...}}
+    result = {}
+
+    # to_process will be a queue for DFA states (as frozensets) that still need processing
+    to_process = [frozenset(p0)]
+
+    p_count = 0
+    alphabets = nfa.input_set
+
+    while to_process:
+        # pop the next DFA state set to process
+        current_set = to_process.pop(0)
+        current_num = big_p[current_set]
+
+        # make sure the current DFA state has a dict in result
+        if current_num not in result:
+            result[current_num] = {}
+
+        # go through each alphabet symbol for the current state set
+        for alphabet in alphabets:
+            found_set = set()
+            # go through each NFA state in the current DFA state to see what states are reachable
+            for state in current_set:
+                if alphabet in t[state]:
+                    for destination in t[state][alphabet]:
+                        found_set.update(lambda_closure(destination, t))
+
+            # found_set done updating, so freeze it so it can hashed
+            found_frozenset = frozenset(found_set)
+
+            # if this new set of states hasn't been seen before, give it a new DFA number and add to queue
+            if found_frozenset not in big_p:
+                p_count += 1
+                big_p[found_frozenset] = p_count
+                to_process.append(found_frozenset)
+
+            # update the DFA transition table
+            destination_p = big_p[found_frozenset]
+            result[current_num][alphabet] = destination_p
+
+    return result
+
 def main():
-    
     def preProcessString(regString):
         for i in range(len(regString)):
             if regString[i-1] not in ["(",")","|",".","*"] and regString[i] not in ["*","|",")"]:
@@ -190,13 +259,13 @@ def main():
     regg = preProcessString(reg)
     reggg = regex_to_postfix(regg)
     print(reggg)
-    dingus = postfix_to_nfa(reggg)
+    nfa = postfix_to_nfa(reggg)
     
+    print(print_nfa(nfa))
 
+    dfa = convert_nfa_to_dfa(nfa)
+    print(f"DFA: {dfa}")
 
-    
-
-    print(print_nfa(dingus))
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:
@@ -205,4 +274,5 @@ if __name__ == '__main__':
     else:
         print("No regular expression entered, defaulting to ab*a|a(ba)*")
         reg = "ab*a|a(ba)*"
+        #reg = "ab*a"
         main()
