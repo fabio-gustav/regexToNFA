@@ -174,7 +174,7 @@ def postfix_to_nfa(postfix):
     return stack.pop()
 
 
-def preProcessString(regString):
+def preprocess_string(regString):
     for i in range(len(regString)):
         if regString[i - 1] not in "()|.*" and regString[i] not in "*|)":
             regString = regString[:i] + "." + regString[i:]
@@ -202,7 +202,10 @@ def check_valid_regex(regex_string):
     return False
 
 
-def lambda_closure(state, transition_diagram, result=set()):
+def lambda_closure(state, transition_diagram, result=None):
+    if result is None:
+        result = set()
+
     # Always include self
     result.add(state)
 
@@ -276,12 +279,12 @@ def main():
         user_entered_reg = sys.argv[1]
 
     else:
-        print(
-            "REMOVE ME LATER - No regular expression entered, defaulting to ab*a|a(ba)*"
-        )
+        print("REMOVE ME LATER - No regular expression entered, defaulting to ab*a|a(ba)*")
         user_entered_reg = "ab*a|a(ba)*"
 
-    preprocessed_reg = preProcessString(user_entered_reg)
+    preprocessed_reg = preprocess_string(user_entered_reg)
+    print(f"Preprocessed reg: {preprocessed_reg}")
+
     postfix_reg = regex_to_postfix(preprocessed_reg)
 
     if check_valid_regex(postfix_reg) is False:
