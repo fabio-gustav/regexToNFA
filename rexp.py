@@ -187,10 +187,11 @@ def preprocess_string(regString):
     return ''.join(result)
 
 
-# THIS ONLY CHECKS PARENTHESES, THE REST NEEDS TO BE ADDED STILL
+# checks that parentheses match and all operators are valid
 def check_valid_regex(regex_string):
     stack = []
     index = 0
+    operator = ["*", "|", "."]
 
     while index < len(regex_string):
         char = regex_string[index]
@@ -201,6 +202,8 @@ def check_valid_regex(regex_string):
                 return False
             else:
                 stack.pop()
+        elif char.isalpha() == False and char not in operator:
+            return False
         index += 1
 
     if len(stack) == 0:
@@ -288,6 +291,7 @@ class DFA:
 
         # done so set results
         self.transition_table = result
+        print("REMOVE ME, JUST FOR DEBUGGING" + str(self.transition_table))
         # Determine initial state - should always be 0
         self.initial_state = 0
         # get accepting states
@@ -297,9 +301,29 @@ class DFA:
                     self.accepting_states.add(p_num)
 
 
+    def minimize(self):
+        self.remove_inaccessible()
+
+    def remove_inaccessible(self):
+        accessible = set()
+        states_to_visit = [self.initial_state]
+
+        while states_to_visit:
+            current_state = states_to_visit.pop()
+            if current_state not in accessible:
+                accessible.add(current_state)
+                for symbol in self.input_set:
+                    next_state = self.transition_table.get(current_state).get(symbol)
+                    # print(next_state)
+                    states_to_visit.append(next_state)
+
+        for current_state in self.transition_table:
+            if current_state not in accessible:
+                self.transition_table.remove(current_state)
+                print("removing inacessible state " + str(current_state))
+
 
     def print_DFA(self):
-        print("\nDFA:")
         print(" Sigma:    " + "    ".join(sorted(self.input_set)))
         print("------------------")
 
@@ -325,20 +349,27 @@ def main():
         print("REMOVE ME LATER - No regular expression entered, defaulting to ab*a|a(ba)*")
         user_entered_reg = "ab*a|a(ba)*"
 
-    preprocessed_reg = preprocess_string(user_entered_reg)
-    print(f"Preprocessed reg: {preprocessed_reg}")
-
-    postfix_reg = regex_to_postfix(preprocessed_reg)
-
-    if check_valid_regex(postfix_reg) is False:
+    if check_valid_regex(user_entered_reg) is False:
         print("Invalid regular expression, exiting program.")
         quit()
     print(user_entered_reg + " is a valid regular expression")
+
+    preprocessed_reg = preprocess_string(user_entered_reg)
+    # print(f"Preprocessed reg: {preprocessed_reg}")
+
+    postfix_reg = regex_to_postfix(preprocessed_reg)
+
+
 
     nfa = postfix_to_nfa(postfix_reg)
     nfa.print_NFA()
 
     dfa = DFA(nfa)
+    print("\nDFA:")
+    dfa.print_DFA()
+
+    dfa.minimize()
+    print("\nMinimized DFA:")
     dfa.print_DFA()
 
 
