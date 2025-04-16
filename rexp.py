@@ -361,10 +361,9 @@ class DFA:
 
         # Go through each char in given sentance
         for char in sentence:
-            if char in self.transition_table[current_state]:
+            if char in self.transition_table.get(current_state, []):
                 # Transition to the next state, based on the current char/alphabet
                 current_state = self.transition_table[current_state][char]
-
             else:
                 # Fail as character/alphabet not defined for current state
                 return False
@@ -390,13 +389,27 @@ class DFA:
         print(",".join(str(t) for t in sorted(self.accepting_states)) + ":  Accepting State(s)")
 
 
+def list_accepted_strings(dfa, file_name):
+    results = []
+    with open(file_name, 'r') as file:
+        content = file.read()
+        for index, sentence in enumerate(content.split()):
+            if dfa.is_valid_sentence(sentence):
+                results.append(f"{index}:{sentence}")
+    return results
+
 def main():
     if len(sys.argv) == 2:
         user_entered_reg = sys.argv[1]
-
+    elif len(sys.argv) == 3:
+        user_entered_reg = sys.argv[1]
+        file_name = sys.argv[2]
+        file_given = True
     else:
         print("REMOVE ME LATER - No regular expression entered, defaulting to ab*a|a(ba)*")
         user_entered_reg = "ab*a|a(ba)*"
+        file_name = "S1.txt"
+        file_given = True
 
     if check_valid_regex(user_entered_reg) is False:
         print("Invalid regular expression, exiting program.")
@@ -420,6 +433,14 @@ def main():
     dfa.minimize()
     print("\nMinimized DFA:")
     dfa.print_DFA()
+
+    if file_given:
+        accepted_strings = list_accepted_strings(dfa, file_name)
+
+        print(f"\nL({user_entered_reg})")
+        print(f"Accepted strings in {file_name}:")
+        for accepted in accepted_strings:
+            print(f"\t {accepted}")
 
 
 if __name__ == "__main__":
