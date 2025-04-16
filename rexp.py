@@ -34,6 +34,7 @@ class NFA:
         return new_state
 
     def print_NFA(self):
+        """ Prints the NFA. """
         print("\nNFA:")
         print("Sigma:\t" + " ".join(sorted(self.input_set)))
         print("------")
@@ -291,7 +292,6 @@ class DFA:
 
         # done so set results
         self.transition_table = result
-        print("REMOVE ME, JUST FOR DEBUGGING" + str(self.transition_table))
         # Determine initial state - should always be 0
         self.initial_state = 0
         # get accepting states
@@ -301,20 +301,35 @@ class DFA:
                     self.accepting_states.add(p_num)
 
     def minimize(self):
+        """ Minimizes the DFA."""
         self.remove_inaccessible()
         distinguishable_matrix = self.get_distinguishable_matrix()
 
+        # reads from the distinguishable matrix to remove extra states from the transition diagram
+        removed_states = {}
         number_of_states = len(self.transition_table)
         for i in range(number_of_states):
             for j in range(i+1, number_of_states):
                 if distinguishable_matrix[i][j] == 0 and self.transition_table.get(j):
                     print("Can compress " + str(i) + " and " + str(j))
                     self.transition_table.pop(j)
+                    removed_states[j] = i
+
+                    # removing from accessible states if removed from transition
                     if j in self.accepting_states:
                         self.accepting_states.remove(j)
-                    # still need to update DFA transition table to match actual functions
+
+        # updating transition table to get rid of old states
+        for i in range(len(self.transition_table)):
+            for token in self.input_set:
+                next_state = self.transition_table.get(i).get(token)
+                if next_state in removed_states:
+                    print(str(next_state) + " was removed, updating diagram.")
+                    self.transition_table.get(i)[token] = removed_states[next_state]
+
 
     def remove_inaccessible(self):
+        """ Removes extra inaccessible states from the DFA."""
         accessible = set()
         states_to_visit = [self.initial_state]
 
@@ -324,7 +339,6 @@ class DFA:
                 accessible.add(current_state)
                 for symbol in self.input_set:
                     next_state = self.transition_table.get(current_state).get(symbol)
-                    # print(next_state)
                     states_to_visit.append(next_state)
 
         for current_state in self.transition_table:
@@ -332,15 +346,16 @@ class DFA:
                 self.transition_table.remove(current_state)
 
     def get_distinguishable_matrix(self):
+        """ Returns a matrix of distinguishability. """
         number_of_states = len(self.transition_table)
         distinguishable_matrix = [[1 for i in range(number_of_states)] for i in range(number_of_states)]
-        print(distinguishable_matrix)
 
         for i in range(number_of_states):
-            for j in range(number_of_states):
+            for j in range(i+1, number_of_states):
                 state_1_accepting = i in self.accepting_states
                 state_2_accepting = j in self.accepting_states
 
+                # checks if both states accept or not, and sets the matrix value to 0 if they are indistinguishable
                 if state_1_accepting == state_2_accepting:
                     distinguishable = False
                     for token in self.input_set:
@@ -353,25 +368,25 @@ class DFA:
                     if distinguishable == False:
                         distinguishable_matrix[i][j] = 0
 
-        print(distinguishable_matrix)
         return distinguishable_matrix
 
     def is_valid_sentence(self, sentence):
+        """ Checks that a given sentence can run on a given DFA."""
         current_state = self.initial_state
 
-        # Go through each char in given sentance
         for char in sentence:
-            if char in self.transition_table.get(current_state, []):
-                # Transition to the next state, based on the current char/alphabet
+            if char in self.transition_table[current_state]:
+                # transition to the next state, based on the current char/alphabet
                 current_state = self.transition_table[current_state][char]
+
             else:
-                # Fail as character/alphabet not defined for current state
+                # fail as character/alphabet not defined for current state
                 return False
 
-        # return true if sentance ends at accepting state
         return current_state in self.accepting_states
 
     def print_DFA(self):
+        """ Prints out the DFA. """
         print(" Sigma:\t\t" + "\t".join(sorted(self.input_set)))
         print("------------------")
 
@@ -389,27 +404,13 @@ class DFA:
         print(",".join(str(t) for t in sorted(self.accepting_states)) + ":  Accepting State(s)")
 
 
-def list_accepted_strings(dfa, file_name):
-    results = []
-    with open(file_name, 'r') as file:
-        content = file.read()
-        for index, sentence in enumerate(content.split()):
-            if dfa.is_valid_sentence(sentence):
-                results.append(f"{index}:{sentence}")
-    return results
-
 def main():
     if len(sys.argv) == 2:
         user_entered_reg = sys.argv[1]
-    elif len(sys.argv) == 3:
-        user_entered_reg = sys.argv[1]
-        file_name = sys.argv[2]
-        file_given = True
+
     else:
         print("REMOVE ME LATER - No regular expression entered, defaulting to ab*a|a(ba)*")
         user_entered_reg = "ab*a|a(ba)*"
-        file_name = "S1.txt"
-        file_given = True
 
     if check_valid_regex(user_entered_reg) is False:
         print("Invalid regular expression, exiting program.")
@@ -417,9 +418,7 @@ def main():
     print(user_entered_reg + " is a valid regular expression")
 
     preprocessed_reg = preprocess_string(user_entered_reg)
-    # print(f"Preprocessed reg: {preprocessed_reg}")
     postfix_reg = regex_to_postfix(preprocessed_reg)
-
     nfa = postfix_to_nfa(postfix_reg)
     nfa.print_NFA()
 
@@ -433,14 +432,6 @@ def main():
     dfa.minimize()
     print("\nMinimized DFA:")
     dfa.print_DFA()
-
-    if file_given:
-        accepted_strings = list_accepted_strings(dfa, file_name)
-
-        print(f"\nL({user_entered_reg})")
-        print(f"Accepted strings in {file_name}:")
-        for accepted in accepted_strings:
-            print(f"\t {accepted}")
 
 
 if __name__ == "__main__":
