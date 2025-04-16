@@ -300,9 +300,19 @@ class DFA:
                 if num in state_set:
                     self.accepting_states.add(p_num)
 
-
     def minimize(self):
         self.remove_inaccessible()
+        distinguishable_matrix = self.get_distinguishable_matrix()
+
+        number_of_states = len(self.transition_table)
+        for i in range(number_of_states):
+            for j in range(i+1, number_of_states):
+                if distinguishable_matrix[i][j] == 0 and self.transition_table.get(j):
+                    print("Can compress " + str(i) + " and " + str(j))
+                    self.transition_table.pop(j)
+                    if j in self.accepting_states:
+                        self.accepting_states.remove(j)
+                    # still need to update DFA transition table to match actual functions
 
     def remove_inaccessible(self):
         accessible = set()
@@ -320,7 +330,31 @@ class DFA:
         for current_state in self.transition_table:
             if current_state not in accessible:
                 self.transition_table.remove(current_state)
-                print("removing inacessible state " + str(current_state))
+
+    def get_distinguishable_matrix(self):
+        number_of_states = len(self.transition_table)
+        distinguishable_matrix = [[1 for i in range(number_of_states)] for i in range(number_of_states)]
+        print(distinguishable_matrix)
+
+        for i in range(number_of_states):
+            for j in range(number_of_states):
+                state_1_accepting = i in self.accepting_states
+                state_2_accepting = j in self.accepting_states
+
+                if state_1_accepting == state_2_accepting:
+                    distinguishable = False
+                    for token in self.input_set:
+                        state_1_next_accepting = self.transition_table.get(i).get(token) in self.accepting_states
+                        state_2_next_accepting = self.transition_table.get(j).get(token) in self.accepting_states
+                        if state_1_next_accepting != state_2_next_accepting:
+                            distinguishable = True
+                            break
+                    # print("State " + str(i) + " and state " + str(j) + " are indistinguishable.")
+                    if distinguishable == False:
+                        distinguishable_matrix[i][j] = 0
+
+        print(distinguishable_matrix)
+        return distinguishable_matrix
 
     def is_valid_sentence(self, sentence):
         current_state = self.initial_state
@@ -330,23 +364,25 @@ class DFA:
             if char in self.transition_table[current_state]:
                 # Transition to the next state, based on the current char/alphabet
                 current_state = self.transition_table[current_state][char]
+
             else:
                 # Fail as character/alphabet not defined for current state
                 return False
+
         # return true if sentance ends at accepting state
         return current_state in self.accepting_states
 
     def print_DFA(self):
-        print(" Sigma:    " + "    ".join(sorted(self.input_set)))
+        print(" Sigma:\t\t" + "\t".join(sorted(self.input_set)))
         print("------------------")
 
         all_states = sorted(self.transition_table.keys())
         for state in all_states:
-            state_line = f"     {state}:"
+            state_line = f"\t{state}:"
 
             for symbol in sorted(self.input_set):
                 target = self.transition_table[state].get(symbol, "-")
-                state_line += "    " + str(target)
+                state_line += "\t" + str(target)
             print(state_line)
 
         print("------------------")
@@ -369,7 +405,6 @@ def main():
 
     preprocessed_reg = preprocess_string(user_entered_reg)
     # print(f"Preprocessed reg: {preprocessed_reg}")
-
     postfix_reg = regex_to_postfix(preprocessed_reg)
 
     nfa = postfix_to_nfa(postfix_reg)
