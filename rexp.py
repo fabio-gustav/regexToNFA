@@ -322,6 +322,19 @@ class DFA:
                 self.transition_table.remove(current_state)
                 print("removing inacessible state " + str(current_state))
 
+    def is_valid_sentence(self, sentence):
+        current_state = self.initial_state
+
+        # Go through each char in given sentance
+        for char in sentence:
+            if char in self.transition_table[current_state]:
+                # Transition to the next state, based on the current char/alphabet
+                current_state = self.transition_table[current_state][char]
+            else:
+                # Fail as character/alphabet not defined for current state
+                return False
+        # return true if sentance ends at accepting state
+        return current_state in self.accepting_states
 
     def print_DFA(self):
         print(" Sigma:    " + "    ".join(sorted(self.input_set)))
@@ -359,14 +372,15 @@ def main():
 
     postfix_reg = regex_to_postfix(preprocessed_reg)
 
-
-
     nfa = postfix_to_nfa(postfix_reg)
     nfa.print_NFA()
 
     dfa = DFA(nfa)
     print("\nDFA:")
     dfa.print_DFA()
+
+    sentence = "ababababababa"
+    print(f"REMOVE LATER. {sentence} is valid sentence: {dfa.is_valid_sentence(sentence)}")
 
     dfa.minimize()
     print("\nMinimized DFA:")
