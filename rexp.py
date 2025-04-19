@@ -319,12 +319,12 @@ class DFA:
                         self.accepting_states.remove(j)
 
         # updating transition table to get rid of old states
-        for i in range(len(self.transition_table)):
+        for key, value in self.transition_table.items():
             for token in self.input_set:
-                next_state = self.transition_table.get(i).get(token)
+                next_state = value.get(token)
                 if next_state in removed_states:
                     # print(str(next_state) + " was removed, updating diagram.")
-                    self.transition_table.get(i)[token] = removed_states[next_state]
+                    value[token] = removed_states[next_state]
 
 
     def remove_inaccessible(self):
