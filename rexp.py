@@ -34,7 +34,7 @@ class NFA:
         return new_state
 
     def print_NFA(self):
-        """ Prints the NFA. """
+        """Prints the NFA."""
         print("\nNFA:")
         print("Sigma:\t" + " ".join(sorted(self.input_set)))
         print("------")
@@ -47,185 +47,129 @@ class NFA:
                 state_line += (f" {symbol}->" + "{" + ", ".join(str(t) for t in sorted(targets)) + "}")
 
             lambda_targets = self.transition[state].get("", set())
-            state_line += (f' ""->' + "{" + ", ".join(str(t) for t in sorted(lambda_targets)) + "}")
+            state_line += (' ""->' + "{" + ", ".join(str(t) for t in sorted(lambda_targets)) + "}")
 
             print(state_line)
         print("------")
         print(str(self.initial) + ":  Initial State")
         print(",".join(str(t) for t in sorted(self.accepting_states)) + ":  Accepting State(s)")
 
+    def literal_nfa(self, symbol):
+        new_nfa = NFA(symbol)
 
-def literal_nfa(symbol):
-    new_nfa = NFA(symbol)
+        new_state = new_nfa.add_state()
+        if new_nfa.reg_string not in new_nfa.input_set:
+            new_nfa.input_set.add(new_nfa.reg_string)
+        new_nfa.add_transition(new_nfa.initial, new_nfa.reg_string, new_state)
+        new_nfa.accepting_states.add(new_state)
 
-    new_state = new_nfa.add_state()
-    if new_nfa.reg_string not in new_nfa.input_set:
-        new_nfa.input_set.add(new_nfa.reg_string)
-    new_nfa.add_transition(new_nfa.initial, new_nfa.reg_string, new_state)
-    new_nfa.accepting_states.add(new_state)
+        return new_nfa
 
-    return new_nfa
+    def union_nfa(self, left_nfa, right_nfa):
+        new_nfa = NFA("")
 
+        new_nfa.transition.update(left_nfa.transition)
+        new_nfa.transition.update(right_nfa.transition)
 
-def union_nfa(left_nfa, right_nfa):
-    new_nfa = NFA("")
+        new_nfa.add_transition(new_nfa.initial, "", left_nfa.initial)
+        new_nfa.add_transition(new_nfa.initial, "", right_nfa.initial)
 
-    new_nfa.transition.update(left_nfa.transition)
-    new_nfa.transition.update(right_nfa.transition)
+        new_nfa.accepting_states = new_nfa.accepting_states.union(left_nfa.accepting_states)
+        new_nfa.accepting_states = new_nfa.accepting_states.union(right_nfa.accepting_states)
 
-    new_nfa.add_transition(new_nfa.initial, "", left_nfa.initial)
-    new_nfa.add_transition(new_nfa.initial, "", right_nfa.initial)
+        new_nfa.input_set.update(left_nfa.input_set)
+        new_nfa.input_set.update(right_nfa.input_set)
 
-    new_nfa.accepting_states = new_nfa.accepting_states.union(left_nfa.accepting_states)
-    new_nfa.accepting_states = new_nfa.accepting_states.union(right_nfa.accepting_states)
+        return new_nfa
 
-    new_nfa.input_set.update(left_nfa.input_set)
-    new_nfa.input_set.update(right_nfa.input_set)
+    def concat_nfa(self, left_nfa, right_nfa):
+        new_nfa = NFA("")
 
-    return new_nfa
+        new_nfa.transition.update(left_nfa.transition)
+        new_nfa.transition.update(right_nfa.transition)
 
+        for states in left_nfa.accepting_states:
+            new_nfa.add_transition(states, "", right_nfa.initial)
 
-def concat_nfa(left_nfa, right_nfa):
-    new_nfa = NFA("")
+        new_nfa.add_transition(new_nfa.initial, "", left_nfa.initial)
 
-    new_nfa.transition.update(left_nfa.transition)
-    new_nfa.transition.update(right_nfa.transition)
+        new_nfa.accepting_states = right_nfa.accepting_states
 
-    for states in left_nfa.accepting_states:
-        new_nfa.add_transition(states, "", right_nfa.initial)
+        new_nfa.input_set.update(left_nfa.input_set)
+        new_nfa.input_set.update(right_nfa.input_set)
 
-    new_nfa.add_transition(new_nfa.initial, "", left_nfa.initial)
+        return new_nfa
 
-    new_nfa.accepting_states = right_nfa.accepting_states
+    def star_nfa(self, prev_nfa):
+        new_nfa = NFA("")
 
-    new_nfa.input_set.update(left_nfa.input_set)
-    new_nfa.input_set.update(right_nfa.input_set)
+        new_nfa.transition.update(prev_nfa.transition)
 
-    return new_nfa
+        new_nfa.add_transition(new_nfa.initial, "", prev_nfa.initial)
 
+        for states in prev_nfa.accepting_states:
+            new_nfa.add_transition(states, "", new_nfa.initial)
 
-def star_nfa(prev_nfa):
-    new_nfa = NFA("")
+        new_nfa.accepting_states.add(new_nfa.initial)
+        new_nfa.input_set.update(prev_nfa.input_set)
 
-    new_nfa.transition.update(prev_nfa.transition)
+        return new_nfa
 
-    new_nfa.add_transition(new_nfa.initial, "", prev_nfa.initial)
+    def regex_to_postfix(self, regex):
+        precedence = {"*": 3, ".": 2, "|": 1}
+        output = []
+        stack = []
 
-    for states in prev_nfa.accepting_states:
-        new_nfa.add_transition(states, "", new_nfa.initial)
-
-    new_nfa.accepting_states.add(new_nfa.initial)
-    new_nfa.input_set.update(prev_nfa.input_set)
-
-    return new_nfa
-
-
-def regex_to_postfix(regex):
-    precedence = {"*": 3, ".": 2, "|": 1}
-    output = []
-    stack = []
-
-    for token in regex:
-        if token.isalnum():  # Token is a literal
-            output.append(token)
-        elif token == "(":
-            stack.append(token)
-        elif token == ")":
-            while stack and stack[-1] != "(":
-                output.append(stack.pop())
-            stack.pop()  # Remove '('
-        else:
-            # token is an operator
-            while (stack and stack[-1] != "(" and precedence.get(stack[-1], 0) >= precedence[token]):
-                output.append(stack.pop())
-            stack.append(token)
-
-    # Pop any remaining operators
-    while stack:
-        output.append(stack.pop())
-
-    return "".join(output)
-
-
-def postfix_to_nfa(postfix):
-    stack = []
-
-    for token in postfix:
-        if token.isalnum():  # Treat as literal
-            stack.append(literal_nfa(token))
-        elif token == "*":
-            # Kleene star is unary
-            frag = stack.pop()
-            stack.append(star_nfa(frag))
-        elif token == ".":
-            # Concatenation is binary
-            frag2 = stack.pop()
-            frag1 = stack.pop()
-            stack.append(concat_nfa(frag1, frag2))
-        elif token == "|":
-            # Union is binary
-            frag2 = stack.pop()
-            frag1 = stack.pop()
-            stack.append(union_nfa(frag1, frag2))
-        else:
-            raise ValueError("Unsupported token: " + token)
-
-    # The final NFA fragment on the stack represents the complete NFA
-    return stack.pop()
-
-
-def preprocess_string(regString):
-    result = []
-    n = len(regString)
-    
-    for i in range(n - 1):
-        result.append(regString[i])
-        if regString[i] not in "(.|." and regString[i+1] not in "*|).":
-            result.append('.')
-    
-    # add last char
-    result.append(regString[-1])
-    return ''.join(result)
-
-
-# checks that parentheses match and all operators are valid
-def check_valid_regex(regex_string):
-    stack = []
-    index = 0
-    operator = ["*", "|", "."]
-
-    while index < len(regex_string):
-        char = regex_string[index]
-        if char == "(":
-            stack.append(char)
-        elif char == ")":
-            if len(stack) == 0:
-                return False
+        for token in regex:
+            if token.isalnum():  # Token is a literal
+                output.append(token)
+            elif token == "(":
+                stack.append(token)
+            elif token == ")":
+                while stack and stack[-1] != "(":
+                    output.append(stack.pop())
+                stack.pop()  # Remove '('
             else:
-                stack.pop()
-        elif char.isalpha() == False and char not in operator:
-            return False
-        index += 1
+                # token is an operator
+                while (
+                    stack
+                    and stack[-1] != "("
+                    and precedence.get(stack[-1], 0) >= precedence[token]
+                ):
+                    output.append(stack.pop())
+                stack.append(token)
 
-    if len(stack) == 0:
-        return True
-    return False
+        # Pop any remaining operators
+        while stack:
+            output.append(stack.pop())
 
+        return "".join(output)
 
-def lambda_closure(state, transition_diagram, result=None):
-    if result is None:
-        result = set()
+    def postfix_to_nfa(self, postfix):
+        stack = []
 
-    # Always include self
-    result.add(state)
+        for token in postfix:
+            if token.isalnum():  # Treat as literal
+                stack.append(self.literal_nfa(token))
+            elif token == "*":
+                # Kleene star is unary
+                frag = stack.pop()
+                stack.append(self.star_nfa(frag))
+            elif token == ".":
+                # Concatenation is binary
+                frag2 = stack.pop()
+                frag1 = stack.pop()
+                stack.append(self.concat_nfa(frag1, frag2))
+            elif token == "|":
+                # Union is binary
+                frag2 = stack.pop()
+                frag1 = stack.pop()
+                stack.append(self.union_nfa(frag1, frag2))
+            else:
+                raise ValueError("Unsupported token: " + token)
 
-    current_transitions = transition_diagram[state]
-    # if empty-string/lambda is a key
-    if "" in current_transitions:
-        for other_state in sorted(current_transitions[""]):
-            lambda_closure(other_state, transition_diagram, result)
-
-    return result
+        # The final NFA fragment on the stack represents the complete NFA
+        return stack.pop()
 
 
 class DFA:
@@ -300,7 +244,7 @@ class DFA:
                     self.accepting_states.add(p_num)
 
     def minimize(self):
-        """ Minimizes the DFA."""
+        """Minimizes the DFA."""
         self.remove_inaccessible()
         distinguishable_matrix = self.get_distinguishable_matrix()
 
@@ -308,7 +252,7 @@ class DFA:
         removed_states = {}
         number_of_states = len(self.transition_table)
         for i in range(number_of_states):
-            for j in range(i+1, number_of_states):
+            for j in range(i + 1, number_of_states):
                 if distinguishable_matrix[i][j] == 0 and self.transition_table.get(j):
                     # print("Can compress " + str(i) + " and " + str(j))
                     self.transition_table.pop(j)
@@ -326,9 +270,8 @@ class DFA:
                     # print(str(next_state) + " was removed, updating diagram.")
                     value[token] = removed_states[next_state]
 
-
     def remove_inaccessible(self):
-        """ Removes extra inaccessible states from the DFA."""
+        """Removes extra inaccessible states from the DFA."""
         accessible = set()
         states_to_visit = [self.initial_state]
 
@@ -364,7 +307,7 @@ class DFA:
                             distinguishable = True
                             break
                     # print("State " + str(i) + " and state " + str(j) + " are indistinguishable.")
-                    if distinguishable == False:
+                    if not distinguishable:
                         distinguishable_matrix[i][j] = 0
 
         return distinguishable_matrix
@@ -402,6 +345,62 @@ class DFA:
         print(str(self.initial_state) + ":  Initial State")
         print(",".join(str(t) for t in sorted(self.accepting_states)) + ":  Accepting State(s)")
 
+
+
+def preprocess_string(regString):
+    result = []
+    n = len(regString)
+    
+    for i in range(n - 1):
+        result.append(regString[i])
+        if regString[i] not in "(.|." and regString[i+1] not in "*|).":
+            result.append('.')
+    
+    # add last char
+    result.append(regString[-1])
+    return ''.join(result)
+
+
+# checks that parentheses match and all operators are valid
+def check_valid_regex(regex_string):
+    stack = []
+    index = 0
+    operator = ["*", "|", "."]
+
+    while index < len(regex_string):
+        char = regex_string[index]
+        if char == "(":
+            stack.append(char)
+        elif char == ")":
+            if len(stack) == 0:
+                return False
+            else:
+                stack.pop()
+        elif not char.isalpha() and char not in operator:
+            return False
+        index += 1
+
+    if len(stack) == 0:
+        return True
+    return False
+
+
+def lambda_closure(state, transition_diagram, result=None):
+    if result is None:
+        result = set()
+
+    # Always include self
+    result.add(state)
+
+    current_transitions = transition_diagram[state]
+    # if empty-string/lambda is a key
+    if "" in current_transitions:
+        for other_state in sorted(current_transitions[""]):
+            lambda_closure(other_state, transition_diagram, result)
+
+    return result
+
+
 def list_accepted_strings(dfa, file_name):
     results = []
     with open(file_name, 'r') as file:
@@ -415,7 +414,6 @@ def main():
     if len(sys.argv) == 3:
         user_entered_reg = sys.argv[1]
         file_name = sys.argv[2]
-        file_given = True
     else:
         print("Incorrect usage.")
         print("python rexp.py <regular expression> <input file>")
@@ -427,8 +425,10 @@ def main():
     print(user_entered_reg + " is a valid regular expression")
 
     preprocessed_reg = preprocess_string(user_entered_reg)
-    postfix_reg = regex_to_postfix(preprocessed_reg)
-    nfa = postfix_to_nfa(postfix_reg)
+
+    nfa = NFA("")
+    postfix_reg = nfa.regex_to_postfix(preprocessed_reg)
+    nfa = nfa.postfix_to_nfa(postfix_reg)
     nfa.print_NFA()
 
     dfa = DFA(nfa)
