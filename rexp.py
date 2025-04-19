@@ -229,20 +229,19 @@ def lambda_closure(state, transition_diagram, result=None):
 
 
 class DFA:
-    def __init__(self, NFA):
+    def __init__(self, nfa):
         self.transition_table = {}
-        self.nfa = NFA
         self.initial_state = None
         self.accepting_states = set()
-        self.input_set = sorted(NFA.input_set)
-        self.convert_nfa_to_dfa()
+        self.input_set = sorted(nfa.input_set)
+        self.convert_nfa_to_dfa(nfa)
 
-    def convert_nfa_to_dfa(self):
+    def convert_nfa_to_dfa(self, nfa):
         # define transition table
-        t = self.nfa.transition
+        t = nfa.transition
 
         # Get initial states
-        p0 = lambda_closure(self.nfa.initial, t)
+        p0 = lambda_closure(nfa.initial, t)
 
         # big_p's structure is -> key={the set of states}: value=int corresponding to the p number
         #   ex: {{q0, q1, q2}:0, {q0,q1}:1}
@@ -296,7 +295,7 @@ class DFA:
         self.initial_state = 0
         # get accepting states
         for state_set, p_num in big_p.items():
-            for num in self.nfa.accepting_states:
+            for num in nfa.accepting_states:
                 if num in state_set:
                     self.accepting_states.add(p_num)
 
@@ -311,7 +310,7 @@ class DFA:
         for i in range(number_of_states):
             for j in range(i+1, number_of_states):
                 if distinguishable_matrix[i][j] == 0 and self.transition_table.get(j):
-                    print("Can compress " + str(i) + " and " + str(j))
+                    # print("Can compress " + str(i) + " and " + str(j))
                     self.transition_table.pop(j)
                     removed_states[j] = i
 
@@ -324,7 +323,7 @@ class DFA:
             for token in self.input_set:
                 next_state = self.transition_table.get(i).get(token)
                 if next_state in removed_states:
-                    print(str(next_state) + " was removed, updating diagram.")
+                    # print(str(next_state) + " was removed, updating diagram.")
                     self.transition_table.get(i)[token] = removed_states[next_state]
 
 
@@ -373,7 +372,7 @@ class DFA:
     def is_valid_sentence(self, sentence):
         current_state = self.initial_state
 
-        # Go through each char in given sentance
+        # Go through each char in given sentence
         for char in sentence:
             if char in self.transition_table.get(current_state, []):
                 # Transition to the next state, based on the current char/alphabet
@@ -382,7 +381,7 @@ class DFA:
                 # Fail as character/alphabet not defined for current state
                 return False
 
-        # return true if sentance ends at accepting state
+        # return true if sentence ends at accepting state
         return current_state in self.accepting_states
 
     def print_DFA(self):
@@ -413,17 +412,14 @@ def list_accepted_strings(dfa, file_name):
     return results
 
 def main():
-    if len(sys.argv) == 2:
-        user_entered_reg = sys.argv[1]
-    elif len(sys.argv) == 3:
+    if len(sys.argv) == 3:
         user_entered_reg = sys.argv[1]
         file_name = sys.argv[2]
         file_given = True
     else:
-        print("REMOVE ME LATER - No regular expression entered, defaulting to ab*a|a(ba)*")
-        user_entered_reg = "ab*a|a(ba)*"
-        file_name = "S1.txt"
-        file_given = True
+        print("Incorrect usage.")
+        print("python rexp.py <regular expression> <input file>")
+        quit()
 
     if check_valid_regex(user_entered_reg) is False:
         print("Invalid regular expression, exiting program.")
@@ -443,13 +439,11 @@ def main():
     print("\nMinimized DFA:")
     dfa.print_DFA()
 
-    if file_given:
-        accepted_strings = list_accepted_strings(dfa, file_name)
-
-        print(f"\nL({user_entered_reg})")
-        print(f"Accepted strings in {file_name}:")
-        for accepted in accepted_strings:
-            print(f"\t {accepted}")
+    accepted_strings = list_accepted_strings(dfa, file_name)
+    print(f"\nL({user_entered_reg})")
+    print(f"Accepted strings in {file_name}:")
+    for accepted in accepted_strings:
+        print(f"\t {accepted}")
 
 
 if __name__ == "__main__":
