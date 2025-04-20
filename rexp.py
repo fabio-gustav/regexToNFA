@@ -1,6 +1,5 @@
 import sys
 
-
 class NFA:
     node_total = 0
 
@@ -12,9 +11,6 @@ class NFA:
         self.accepting_states = set()
         self.initial = NFA.node_total
         self.create_nfa()
-
-    def __str__(self):
-        return f"Reg_string: {self.reg_string}.\n Input set: {self.input_set}.\n Transition: {self.transition}.\n States: {self.states}. \n Accepting: {self.accepting_states}. \n Initial: {self.initial}"
 
     def create_nfa(self):
         self.states = {self.initial}
@@ -104,7 +100,6 @@ class NFA:
         new_nfa = NFA("")
 
         new_nfa.transition.update(prev_nfa.transition)
-
         new_nfa.add_transition(new_nfa.initial, "", prev_nfa.initial)
 
         for states in prev_nfa.accepting_states:
@@ -233,45 +228,44 @@ class DFA:
                 destination_p = big_p[found_frozenset]
                 result[current_num][alphabet] = destination_p
 
-        # done so set results
         self.transition_table = result
-        # Determine initial state - should always be 0
-        self.initial_state = 0
+        self.initial_state = 0 # initial state should always be 0
         # get accepting states
         for state_set, p_num in big_p.items():
             for num in nfa.accepting_states:
                 if num in state_set:
                     self.accepting_states.add(p_num)
 
+    # minimizes the DFA
     def minimize(self):
-        """Minimizes the DFA."""
         self.remove_inaccessible()
         distinguishable_matrix = self.get_distinguishable_matrix()
 
         # reads from the distinguishable matrix to remove extra states from the transition diagram
         removed_states = {}
-        number_of_states = len(self.transition_table)
+        states = list(self.transition_table.keys())
+        number_of_states = len(states)
         for i in range(number_of_states):
             for j in range(i + 1, number_of_states):
-                if distinguishable_matrix[i][j] == 0 and self.transition_table.get(j):
-                    # print("Can compress " + str(i) + " and " + str(j))
-                    self.transition_table.pop(j)
-                    removed_states[j] = i
+                state1, state2 = states[i], states[j]
+                if distinguishable_matrix[i][j] == 0 and self.transition_table.get(state2):
+                    # print("Can compress " + str(state1) + " and " + str(state2))
+                    self.transition_table.pop(state2)
+                    removed_states[state2] = state1
 
                     # removing from accessible states if removed from transition
-                    if j in self.accepting_states:
-                        self.accepting_states.remove(j)
+                    if state2 in self.accepting_states:
+                        self.accepting_states.remove(state2)
 
         # updating transition table to get rid of old states
-        for key, value in self.transition_table.items():
+        for state, transition in self.transition_table.items():
             for token in self.input_set:
-                next_state = value.get(token)
+                next_state = transition.get(token)
                 if next_state in removed_states:
-                    # print(str(next_state) + " was removed, updating diagram.")
-                    value[token] = removed_states[next_state]
+                    transition[token] = removed_states[next_state]
 
+    # removes extra inaccesible states from the DFA
     def remove_inaccessible(self):
-        """Removes extra inaccessible states from the DFA."""
         accessible = set()
         states_to_visit = [self.initial_state]
 
@@ -285,32 +279,47 @@ class DFA:
 
         for current_state in self.transition_table:
             if current_state not in accessible:
-                self.transition_table.remove(current_state)
+                 del self.transition_table[current_state]
 
+    # returns a matrix of distinguishability
     def get_distinguishable_matrix(self):
-        """ Returns a matrix of distinguishability. """
-        number_of_states = len(self.transition_table)
-        distinguishable_matrix = [[1 for i in range(number_of_states)] for i in range(number_of_states)]
+        states = list(self.transition_table.keys())
+        index_map = {state: i for i, state in enumerate(states)} # extra dict that maps each DFA state to index in state list
+        number_of_states = len(states)
+        distinguishable_matrix = [[0 for i in range(number_of_states)] for i in range(number_of_states)] # set everything as not distinguishable to start
 
+        # first sweep - marking states as distinguishable if they are accepting or not
         for i in range(number_of_states):
             for j in range(i+1, number_of_states):
-                state_1_accepting = i in self.accepting_states
-                state_2_accepting = j in self.accepting_states
+                state1, state2 = states[i], states[j]
+                state_1_accepting = state1 in self.accepting_states
+                state_2_accepting = state2 in self.accepting_states
+                if state_1_accepting != state_2_accepting:
+                    distinguishable_matrix[i][j] = 1
 
-                # checks if both states accept or not, and sets the matrix value to 0 if they are indistinguishable
-                if state_1_accepting == state_2_accepting:
-                    distinguishable = False
+        # check all remaining 0s - if their inputs are not both accepting/not accepting, mark as 1
+        # exit loop if matrix has not been updated
+        matrix_updated = True
+        while matrix_updated == True:
+            matrix_updated = False
+            for i in range(number_of_states):
+                for j in range(i+1, number_of_states):
+                    if distinguishable_matrix[i][j] == 1:
+                        continue # already distinguishable, no need to look more!
+                    state1, state2 = states[i], states[j]
                     for token in self.input_set:
-                        state_1_next_accepting = self.transition_table.get(i).get(token) in self.accepting_states
-                        state_2_next_accepting = self.transition_table.get(j).get(token) in self.accepting_states
-                        if state_1_next_accepting != state_2_next_accepting:
-                            distinguishable = True
+                        state_1_next = self.transition_table[state1].get(token)
+                        state_2_next = self.transition_table[state2].get(token)
+                        index_next_1, index_next_2 = sorted([index_map.get(state_1_next), index_map.get(state_2_next)]) # staying in the filled part of the matrix
+
+                        # setting as distinguishable if next states are also distinguishable
+                        if distinguishable_matrix[index_next_1][index_next_2] == 1:
+                            distinguishable_matrix[i][j] = 1
+                            matrix_updated = True
                             break
-                    # print("State " + str(i) + " and state " + str(j) + " are indistinguishable.")
-                    if not distinguishable:
-                        distinguishable_matrix[i][j] = 0
 
         return distinguishable_matrix
+
 
     def is_valid_sentence(self, sentence):
         current_state = self.initial_state
@@ -345,17 +354,16 @@ class DFA:
         print(str(self.initial_state) + ":  Initial State")
         print(",".join(str(t) for t in sorted(self.accepting_states)) + ":  Accepting State(s)")
 
-
-
+# string preprocessesing that adds dots between operators
 def preprocess_string(regString):
     result = []
     n = len(regString)
-    
+
     for i in range(n - 1):
         result.append(regString[i])
         if regString[i] not in "(.|." and regString[i+1] not in "*|).":
             result.append('.')
-    
+
     # add last char
     result.append(regString[-1])
     return ''.join(result)
@@ -384,12 +392,11 @@ def check_valid_regex(regex_string):
         return True
     return False
 
-
+# finds all states accessible through a given state/transition diagrams
 def lambda_closure(state, transition_diagram, result=None):
     if result is None:
         result = set()
 
-    # Always include self
     result.add(state)
 
     current_transitions = transition_diagram[state]
@@ -400,7 +407,7 @@ def lambda_closure(state, transition_diagram, result=None):
 
     return result
 
-
+# reads the given file to see what strings are accepted within it
 def list_accepted_strings(dfa, file_name):
     results = []
     with open(file_name, 'r') as file:
